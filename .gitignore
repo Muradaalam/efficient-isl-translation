@@ -218,3 +218,35 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ==========================================
+# ISL Translation Project-Specific Rules
+# ==========================================
+
+# Dataset files (keep documentation tracked)
+/data/*
+!/data/README.md
+
+# Trained models and checkpoints
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+
+# Large dataset and feature archives
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.npy
+*.npz
+*.h5
+*.hdf5
+
+# Experiment-generated outputs
+/experiments/*
+!/experiments/.gitkeep
+
+# Local environment and credentials
+.env.*
