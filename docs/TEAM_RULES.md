@@ -478,3 +478,17 @@ The team must acknowledge:
 - Generalization to unseen sentences may be limited.
 
 Research conclusions must not exceed what the experiments demonstrate.
+
+### Dataset Contract v1.0 — Final Split Policy
+
+- The baseline uses 492 validated spreadsheet-annotated sentence-video records.
+- The 195 unreferenced MP4 files are excluded pending separate content verification.
+- The canonical split file is `experiments/isl_manifest_split.csv`.
+- The split generator uses random seed 42.
+- All experiments must use exactly the same sample IDs and split assignments.
+- The baseline split is sentence-stratified at the recording level.
+- Single-recording sentences belong to the training set only.
+- This evaluation measures performance on new recordings of largely known sentences.
+- Signer-independent and unseen-sentence generalization are not established by this split.
+- Any revised split must receive a new version and be evaluated separately.
+- Before reporting final results, check for duplicate video content and possible signer leakage.
