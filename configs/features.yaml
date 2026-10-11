@@ -1,0 +1,22 @@
+version: 1
+
+extractor: mediapipe_holistic
+
+landmarks:
+  pose: 33
+  left_hand: 21
+  right_hand: 21
+  total: 75
+
+coordinates:
+  channels: [x, y, z]
+  normalization: body_relative
+  missing_values: zero_with_valid_mask
+
+motion:
+  type: first_order_difference
+  enabled: false
+
+sampling:
+  default_method: uniform
+  target_frames: 64
