@@ -1,5 +1,6 @@
 
 import numpy as np
+import sys
 
 # Import Shahjad's pose extraction function
 from src.features.pose_motion import extract_pose_from_video
@@ -7,9 +8,8 @@ from src.features.pose_motion import extract_pose_from_video
 # Import your uniform sampling function
 from src.sampling.temporal import sample
 
-
-# Step 1: Specify the path to a real MP4 video
-video_path = "tests/test_video.mp4"
+# Take the video path from the command line
+video_path = sys.argv[1]
 
 # Step 2: Extract poses and validity masks from the video
 # Expected shapes: (T, 75, 3) and (T, 75)
