@@ -250,3 +250,4 @@ __marimo__/
 
 # Local environment and credentials
 .env.*
+tests/test_video.mp4
