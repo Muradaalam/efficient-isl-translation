@@ -40,6 +40,31 @@ def extract_landmarks(landmark_list, count):
     return coordinates, valid_mask
 
 
+
+def normalize_landmarks(coordinates, valid_mask, eps=1e-6):
+    """Normalize valid x-y coordinates relative to the body."""
+    normalized = np.zeros_like(coordinates)
+    normalized_mask = valid_mask.copy()
+
+    required = [11, 12, 23, 24]
+
+    if not np.all(valid_mask[required]):
+        normalized_mask[:] = False
+        return normalized, normalized_mask
+
+    center = (coordinates[23, :2] + coordinates[24, :2]) / 2
+    scale = np.linalg.norm(coordinates[11, :2] - coordinates[12, :2])
+
+    if not np.isfinite(scale) or scale < eps:
+        normalized_mask[:] = False
+        return normalized, normalized_mask
+
+    normalized[valid_mask, :2] = (coordinates[valid_mask, :2] - center) / scale
+    normalized[valid_mask, 2] = coordinates[valid_mask, 2]
+
+    return normalized, normalized_mask
+
+
 def extract_pose_from_video(video_path):
     """
     Extract body and hand landmarks from an entire video.
@@ -120,6 +145,8 @@ def extract_pose_from_video(video_path):
                     [pose_mask, left_mask, right_mask],
                     axis=0
                 )
+
+                frame_pose, frame_mask = normalize_landmarks(frame_pose, frame_mask)
 
                 # Store this frame's data
                 poses.append(frame_pose)
