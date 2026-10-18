@@ -1,43 +1,22 @@
 
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import (
-    pack_padded_sequence,
-    pad_packed_sequence,
-)
+from torch.nn.utils.rnn import (pack_padded_sequence,pad_packed_sequence)
 
 
 class PoseGRUEncoder(nn.Module):
     """Encode variable-length pose sequences using a bidirectional GRU."""
 
-    def __init__(
-        self,
-        num_landmarks=75,
-        coord_dim=3,
-        projection_dim=128,
-        hidden_dim=128,
-        num_layers=1,
-        dropout=0.1,
-    ):
+    def __init__(self,num_landmarks=75,coord_dim=3,projection_dim=128,hidden_dim=128,num_layers=1,dropout=0.1):
         super().__init__()
 
         self.num_landmarks = num_landmarks
         self.coord_dim = coord_dim
         self.output_dim = hidden_dim * 2
 
-        self.projection = nn.Sequential(
-            nn.Linear(num_landmarks * coord_dim, projection_dim),
-            nn.ReLU(),
-        )
+        self.projection = nn.Sequential(nn.Linear(num_landmarks * coord_dim, projection_dim),nn.ReLU())
 
-        self.gru = nn.GRU(
-            input_size=projection_dim,
-            hidden_size=hidden_dim,
-            num_layers=num_layers,
-            batch_first=True,
-            bidirectional=True,
-            dropout=dropout if num_layers > 1 else 0.0,
-        )
+        self.gru = nn.GRU(input_size=projection_dim,hidden_size=hidden_dim,num_layers=num_layers,batch_first=True,bidirectional=True,dropout=dropout if num_layers > 1 else 0.0)
 
     def forward(self, pose, valid_mask, lengths):
         """
@@ -55,10 +34,7 @@ class PoseGRUEncoder(nn.Module):
 
         batch, frames, joints, coords = pose.shape
 
-        if (joints, coords) != (
-            self.num_landmarks,
-            self.coord_dim,
-        ):
+        if (joints, coords) != (self.num_landmarks,self.coord_dim):
             raise ValueError("Unexpected landmark dimensions")
 
         if valid_mask.shape != (batch, frames, joints):
@@ -76,20 +52,11 @@ class PoseGRUEncoder(nn.Module):
         features = masked_pose.reshape(batch, frames, -1)
         projected = self.projection(features)
 
-        packed = pack_padded_sequence(
-            projected,
-            lengths.detach().cpu(),
-            batch_first=True,
-            enforce_sorted=False,
-        )
+        packed = pack_padded_sequence(projected,lengths.detach().cpu(),batch_first=True,enforce_sorted=False)
 
         packed_output, hidden = self.gru(packed)
 
-        encoded, _ = pad_packed_sequence(
-            packed_output,
-            batch_first=True,
-            total_length=frames,
-        )
+        encoded, _ = pad_packed_sequence(packed_output,batch_first=True,total_length=frames)
 
         return encoded, hidden
 
@@ -139,6 +106,7 @@ class AttentionDecoder(nn.Module):
 
     def forward(self,encoded,encoder_hidden,lengths,target_tokens):
         batch, frames, _ = encoded.shape
+
 
         if (target_tokens.ndim != 2 or target_tokens.shape[0] != batch or target_tokens.shape[1] < 2):
             raise ValueError("target_tokens must have shape [B, L] with L >= 2")
@@ -197,3 +165,16 @@ class AttentionDecoder(nn.Module):
 
         return (torch.stack(step_logits, dim=1),torch.stack(step_attentions, dim=1))
 
+class ISLTranslator(nn.Module):
+    def __init__(self, vocab_size):
+        super().__init__()
+
+        self.encoder = PoseGRUEncoder()
+        self.decoder = AttentionDecoder(vocab_size=vocab_size)
+
+    def forward(self, pose, valid_mask, lengths, target_tokens):
+        encoded, hidden = self.encoder(pose, valid_mask, lengths)
+
+        logits, attention = self.decoder(encoded, hidden, lengths, target_tokens)
+
+        return logits, attention
