@@ -74,3 +74,17 @@ class TestPredictTokens(unittest.TestCase):
             predict_tokens(self.model, self.pose, self.valid_mask, torch.tensor([0]))
 
 
+def predict_sentence(model, pose, valid_mask, lengths, id_to_token, eos_id, special_ids):
+    token_ids = predict_tokens(model, pose, valid_mask, lengths)
+
+    if token_ids.ndim != 2 or token_ids.shape[0] != pose.shape[0]:
+        raise ValueError("Expected token IDs with shape [B, L]")
+
+    sentences = []
+
+    for sequence in token_ids:
+        sentence = decode_tokens(sequence, id_to_token, eos_id, special_ids)
+        sentences.append(sentence)
+
+    return sentences
+
