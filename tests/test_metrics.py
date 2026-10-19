@@ -1,5 +1,5 @@
 import unittest
-from src.evaluation.metrics import exact_match_accuracy, word_error_rate
+from src.evaluation.metrics import exact_match_accuracy, word_error_rate, bleu_scores
 
 class TestExactMatchAccuracy(unittest.TestCase):
 
@@ -52,3 +52,43 @@ class TestWordErrorRate(unittest.TestCase):
     def test_mismatched_lengths(self):
         with self.assertRaises(ValueError):
             word_error_rate(["Hello"], [])
+
+
+class TestBLEUScore(unittest.TestCase):
+
+    def test_perfect_prediction(self):
+        scores = bleu_scores(["I am going home"], ["I am going home"])
+
+        for n in range(1, 5):
+            self.assertAlmostEqual(scores[f"bleu_{n}"], 1.0)
+
+    def test_partial_prediction(self):
+        scores = bleu_scores(["I am going home"], ["I am going school"])
+
+        self.assertAlmostEqual(scores["bleu_1"], 0.75)
+        self.assertAlmostEqual(scores["bleu_2"], 0.70710678)
+        self.assertAlmostEqual(scores["bleu_3"], 0.62996052)
+        self.assertEqual(scores["bleu_4"], 0.0)
+
+    def test_empty_predictions(self):
+        scores = bleu_scores(["I am happy"], [""])
+
+        for value in scores.values():
+            self.assertEqual(value, 0.0)
+
+    def test_case_insensitive(self):
+        scores = bleu_scores(["I AM HAPPY TODAY"], ["i am happy today"])
+
+        self.assertAlmostEqual(scores["bleu_4"], 1.0)
+
+    def test_mismatched_lengths(self):
+        with self.assertRaises(ValueError):
+            bleu_scores(["Hello"], [])
+
+    def test_short_prediction(self):
+        scores = bleu_scores(["I am going home"], ["I am"])
+
+        self.assertLess(scores["bleu_1"], 1.0)
+        self.assertEqual(scores["bleu_4"], 0.0)
+
+
