@@ -104,77 +104,125 @@ class AttentionDecoder(nn.Module):
         # Predict vocabulary scores.
         self.output_layer = nn.Linear(hidden_dim + encoder_dim,vocab_size)
 
-    def forward(self,encoded,encoder_hidden,lengths,target_tokens):
-        batch, frames, _ = encoded.shape
+   
+    def prepare(self, encoded, encoder_hidden, lengths):
+        if encoded.ndim != 3:
+            raise ValueError("encoded must have shape [B, T, encoder_dim]")
 
+        batch, frames, encoder_dim = encoded.shape
 
-        if (target_tokens.ndim != 2 or target_tokens.shape[0] != batch or target_tokens.shape[1] < 2):
-            raise ValueError("target_tokens must have shape [B, L] with L >= 2")
+        if encoder_dim != self.key_layer.in_features:
+            raise ValueError("Unexpected encoder output dimension")
 
-        if (lengths.shape != (batch,) or torch.any(lengths < 1) or torch.any(lengths > frames)):
+        if lengths.shape != (batch,) or torch.any(lengths < 1) or torch.any(lengths > frames):
             raise ValueError("Invalid sequence lengths")
 
-        if (encoder_hidden.ndim != 3 or encoder_hidden.shape[0] < 2 or encoder_hidden.shape[0] % 2 != 0 or encoder_hidden.shape[1] != batch):
+        if encoder_hidden.ndim != 3 or encoder_hidden.shape[0] < 2 or encoder_hidden.shape[0] % 2 != 0 or encoder_hidden.shape[1] != batch or encoder_hidden.shape[2] * 2 != encoder_dim:
             raise ValueError("Expected bidirectional encoder hidden states")
 
-        # True for actual video frames, False for padding.
-        source_mask = (torch.arange(frames, device=encoded.device).unsqueeze(0) < lengths.to(encoded.device).unsqueeze(1))
+        source_mask = torch.arange(frames, device=encoded.device).unsqueeze(0) < lengths.to(encoded.device).unsqueeze(1)
 
-        # Combine the encoder's final forward/backward states.
-        final_encoder_state = torch.cat((encoder_hidden[-2], encoder_hidden[-1]),dim=-1)
-
-        # Convert into the initial decoder hidden state.
+        final_encoder_state = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=-1)
         hidden = self.init_hidden(final_encoder_state).unsqueeze(0)
-
-        # Precompute attention keys.
         keys = self.key_layer(encoded)
+
+        return hidden, keys, source_mask
+
+    def decode_step(self, encoded, keys, source_mask, hidden, token_ids):
+        # Calculate attention scores for the current decoding step.
+        query = self.query_layer(hidden[-1]).unsqueeze(1)
+        scores = self.score_layer(torch.tanh(keys + query)).squeeze(-1)
+        scores = scores.masked_fill(~source_mask, torch.finfo(scores.dtype).min)
+
+        attention = torch.softmax(scores, dim=1)
+        context = torch.bmm(attention.unsqueeze(1), encoded)
+
+        # Embed the current input token.
+        word = self.embedding(token_ids).unsqueeze(1)
+        gru_input = torch.cat((word, context), dim=-1)
+
+        # Update hidden state and predict the next token.
+        output, hidden = self.gru(gru_input, hidden)
+        logits = self.output_layer(torch.cat((output, context), dim=-1)).squeeze(1)
+
+        return logits, hidden, attention
+
+    def forward(self, encoded, encoder_hidden, lengths, target_tokens):
+        if target_tokens.ndim != 2 or target_tokens.shape[0] != encoded.shape[0] or target_tokens.shape[1] < 2:
+            raise ValueError("target_tokens must have shape [B, L] with L >= 2")
+
+        hidden, keys, source_mask = self.prepare(encoded, encoder_hidden, lengths)
 
         step_logits = []
         step_attentions = []
 
-        # Teacher forcing: feed each correct previous token.
         for step in range(target_tokens.size(1) - 1):
-
-            # Score video frames using the current hidden state.
-            query = self.query_layer(hidden[-1]).unsqueeze(1)
-
-            scores = self.score_layer(torch.tanh(keys + query)).squeeze(-1)
-
-            # Padded video frames must receive no attention.
-            scores = scores.masked_fill(~source_mask,torch.finfo(scores.dtype).min)
-
-            attention = torch.softmax(scores, dim=1)
-
-            # Weighted sum of encoder outputs.
-            context = torch.bmm(attention.unsqueeze(1),encoded)
-
-            # Embed the previous correct English token.
-            word = self.embedding(target_tokens[:, step]).unsqueeze(1)
-
-            # Combine word embedding and visual context.
-            gru_input = torch.cat((word, context),dim=-1)
-
-            # Update decoder hidden state.
-            output, hidden = self.gru(gru_input,hidden)
-
-            # Predict scores for the next English token.
-            logits = self.output_layer(torch.cat((output, context), dim=-1)).squeeze(1)
-
+            logits, hidden, attention = self.decode_step(encoded, keys, source_mask, hidden, target_tokens[:, step])
             step_logits.append(logits)
             step_attentions.append(attention)
 
-        return (torch.stack(step_logits, dim=1),torch.stack(step_attentions, dim=1))
+        return torch.stack(step_logits, dim=1), torch.stack(step_attentions, dim=1)
+
 
 class ISLTranslator(nn.Module):
-    def __init__(self, vocab_size):
+    def __init__(self, vocab_size, pad_token_id=0):
         super().__init__()
 
         self.encoder = PoseGRUEncoder()
-        self.decoder = AttentionDecoder(vocab_size=vocab_size)
+        self.decoder = AttentionDecoder(vocab_size=vocab_size, pad_token_id=pad_token_id)
+        # PAD_ID = 0
+        # SOS_ID = 1
+        # EOS_ID = 2
+        # UNK_ID = 3
 
     def forward(self, pose, valid_mask, lengths, target_tokens):
         encoded, hidden = self.encoder(pose, valid_mask, lengths)
-
         logits, attention = self.decoder(encoded, hidden, lengths, target_tokens)
 
         return logits, attention
+
+    @torch.no_grad()
+    def generate(self, pose, valid_mask, lengths, sos_id=1, eos_id=2, max_length=30):
+        if not isinstance(max_length, int) or max_length < 1:
+            raise ValueError("max_length must be a positive integer")
+
+        vocab_size = self.decoder.embedding.num_embeddings
+        pad_id = self.decoder.embedding.padding_idx
+
+        if pad_id is None or not 0 <= sos_id < vocab_size or not 0 <= eos_id < vocab_size:
+            raise ValueError("Invalid special token IDs")
+
+        if len({pad_id, sos_id, eos_id}) != 3:
+            raise ValueError("PAD, SOS and EOS must be different token IDs")
+
+        # Encode the input video.
+        encoded, encoder_hidden = self.encoder(pose, valid_mask, lengths)
+        hidden, keys, source_mask = self.decoder.prepare(encoded, encoder_hidden, lengths)
+
+        batch = pose.size(0)
+
+        # Start every sentence with SOS.
+        current = torch.full((batch,), sos_id, dtype=torch.long, device=pose.device)
+        finished = torch.zeros(batch, dtype=torch.bool, device=pose.device)
+        predictions = []
+
+        for _ in range(max_length):
+            # Predict the next token.
+            logits, hidden, _ = self.decoder.decode_step(encoded, keys, source_mask, hidden, current)
+            next_token = logits.argmax(dim=-1)
+
+            # Pad sequences that have already produced EOS.
+            next_token = torch.where(finished, torch.full_like(next_token, pad_id), next_token)
+            predictions.append(next_token)
+
+            # Mark sequences that have finished.
+            finished = finished | (next_token == eos_id)
+
+            if finished.all():
+                break
+
+            # Feed the predicted token into the next decoding step.
+            current = next_token
+
+        return torch.stack(predictions, dim=1)
+
