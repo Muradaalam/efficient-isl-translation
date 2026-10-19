@@ -1,6 +1,7 @@
 import unittest
+import torch
 
-from src.inference.predict import decode_tokens
+from src.inference.predict import decode_tokens, predict_tokens
 
 
 class TestDecodeTokens(unittest.TestCase):

@@ -1,3 +1,6 @@
+import torch
+import unittest
+
 def decode_tokens(token_ids, id_to_token, eos_id, special_ids):
     words = []
 
@@ -16,3 +19,58 @@ def decode_tokens(token_ids, id_to_token, eos_id, special_ids):
         words.append(id_to_token[token_id])
 
     return " ".join(words)
+
+def predict_tokens(model, pose, valid_mask, lengths):
+    if pose.ndim != 4:
+        raise ValueError("Pose must have shape [B, T, J, 3]")
+
+    if valid_mask.shape != pose.shape[:3]:
+        raise ValueError("Invalid validity mask shape")
+
+    if lengths.ndim != 1 or lengths.shape[0] != pose.shape[0]:
+        raise ValueError("Invalid sequence lengths shape")
+
+    if torch.any(lengths <= 0) or torch.any(lengths > pose.shape[1]):
+        raise ValueError("Sequence lengths must be between 1 and T")
+
+    model.eval()
+
+    with torch.inference_mode():
+        token_ids = model.predict(pose, valid_mask, lengths)
+
+    return token_ids
+
+
+class MockModel(torch.nn.Module):
+
+    def predict(self, pose, valid_mask, lengths):
+        return torch.tensor([[1, 3, 4, 5, 2]])
+
+
+class TestPredictTokens(unittest.TestCase):
+
+    def setUp(self):
+        self.model = MockModel()
+        self.pose = torch.zeros(1, 10, 75, 3)
+        self.valid_mask = torch.ones(1, 10, 75, dtype=torch.bool)
+        self.lengths = torch.tensor([10])
+
+    def test_prediction(self):
+        output = predict_tokens(self.model, self.pose, self.valid_mask, self.lengths)
+        self.assertEqual(output.tolist(), [[1, 3, 4, 5, 2]])
+
+    def test_invalid_pose_shape(self):
+        with self.assertRaises(ValueError):
+            predict_tokens(self.model, torch.zeros(10, 75, 3), self.valid_mask, self.lengths)
+
+    def test_invalid_mask_shape(self):
+        wrong_mask = torch.ones(1, 10, 74, dtype=torch.bool)
+
+        with self.assertRaises(ValueError):
+            predict_tokens(self.model, self.pose, wrong_mask, self.lengths)
+
+    def test_invalid_lengths(self):
+        with self.assertRaises(ValueError):
+            predict_tokens(self.model, self.pose, self.valid_mask, torch.tensor([0]))
+
+
