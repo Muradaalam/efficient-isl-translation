@@ -48,28 +48,51 @@ def test_uniform_sampling():
     assert np.array_equal(sampled_mask, valid_mask[indices])
 
 
+
 def test_short_video():
 
-    # Video has only 20 frames, fewer than target_frames=64
+    # Create dummy pose data with only 20 frames
     pose = np.random.rand(20, 75, 3)
     mask = np.ones((20, 75), dtype=bool)
 
-    # Our sampler should keep all 20 frames
+    # Request 64 frames from a 20-frame video
     sampled_pose, sampled_mask, indices = sample(
         pose, mask, target_frames=64
     )
 
-    assert sampled_pose.shape == (20, 75, 3)
-    assert sampled_mask.shape == (20, 75)
-    assert np.array_equal(indices, np.arange(20))
+    # Output must always contain 64 frames
+    assert sampled_pose.shape == (64, 75, 3)
+    assert sampled_mask.shape == (64, 75)
+    assert indices.shape == (64,)
 
+    # First 20 frames must preserve original data
+    assert np.array_equal(sampled_pose[:20], pose)
+    assert np.array_equal(sampled_mask[:20], mask)
+
+    # Remaining 44 frames must be zero padding
+    assert np.all(sampled_pose[20:] == 0)
+
+    # Padding masks must be False
+    assert np.all(sampled_mask[20:] == False)
+
+    # First 20 indices must match original frames
+    assert np.array_equal(indices[:20], np.arange(20))
+
+    # Padded frames must have index -1
+    assert np.all(indices[20:] == -1)
+
+    # Actual sequence length for Murad's GRU
+    actual_length = np.sum(indices >= 0)
+    assert actual_length == 20
 
 def test_empty_video():
 
-    # Create an empty pose sequence
+    # Create an empty pose array (0 frames)
     pose = np.empty((0, 75, 3))
+
+    # Create an empty validity mask
     mask = np.empty((0, 75), dtype=bool)
 
-    # Empty sequences should raise a ValueError
+    # Our sampler should reject empty sequences
     with pytest.raises(ValueError):
         sample(pose, mask, target_frames=64)

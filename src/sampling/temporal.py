@@ -66,6 +66,68 @@ def sample(pose, valid_mask, target_frames=64, method="uniform"):
     # Step 9: Select corresponding validity masks
     # Both arrays must use the same frame indices
     sampled_mask = valid_mask[indices]
+    
+    # If the video has fewer than 64 frames, add padding
+    if len(indices) < target_frames:
+
+        # Calculate how many extra frames are required
+        pad_count = target_frames - len(indices)
+
+        # Add zero-filled pose frames
+        sampled_pose = np.pad(
+            sampled_pose,
+            ((0, pad_count), (0, 0), (0, 0)),
+            mode="constant"
+        )
+
+        # Mark padded landmarks as invalid
+        sampled_mask = np.pad(
+            sampled_mask,
+            ((0, pad_count), (0, 0)),
+            mode="constant",
+            constant_values=False
+        )
+
+        # -1 indicates a padded frame, not an original frame
+        indices = np.pad(
+            indices,
+            (0, pad_count),
+            mode="constant",
+            constant_values=-1
+        )
 
     # Step 10: Return sampled data and original frame indices
     return sampled_pose, sampled_mask, indices
+
+
+ # Motion-aware sampling  we dont need this for 26 presentation
+ 
+def calculate_motion_scores(pose, valid_mask):
+    """
+    Calculate the movement score for each frame.
+    Higher score = more landmark movement.
+    """
+
+    # Number of frames in the pose sequence
+    T = pose.shape[0]
+
+    # Initially, every frame has zero motion
+    scores = np.zeros(T)
+
+    # Calculate coordinate changes between consecutive frames
+    differences = pose[1:] - pose[:-1]
+
+    # Calculate Euclidean distance for each landmark
+    distances = np.linalg.norm(differences, axis=2)
+
+    # Only compare landmarks detected in both frames
+    valid_pairs = valid_mask[1:] & valid_mask[:-1]
+
+    # Ignore movement of missing landmarks
+    distances = distances * valid_pairs
+
+    # Average movement over valid landmarks
+    counts = np.maximum(valid_pairs.sum(axis=1), 1)
+    scores[1:] = distances.sum(axis=1) / counts
+
+    return scores
