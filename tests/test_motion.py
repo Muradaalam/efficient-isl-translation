@@ -8,8 +8,8 @@ from src.features.motion import calculate_hand_motion
 class TestHandMotion(unittest.TestCase):
 
     def setUp(self):
-        self.pose = np.zeros((3, 75, 3), dtype=np.float32)
-        self.mask = np.ones((3, 75), dtype=bool)
+        self.pose = np.zeros((3, 100, 3), dtype=np.float32)
+        self.mask = np.ones((3, 100), dtype=bool)
 
     def test_output_shape(self):
         scores = calculate_hand_motion(self.pose, self.mask)
@@ -80,7 +80,13 @@ class TestHandMotion(unittest.TestCase):
 
         np.testing.assert_array_equal(scores, [0, 0, 0])
         np.testing.assert_array_equal(counts, [0, 0, 0])
+    
+    def test_face_movement_is_excluded(self):
+        self.pose[1, 75:100, 0] = 20
 
+        scores = calculate_hand_motion(self.pose, self.mask)
+
+        np.testing.assert_array_equal(scores, [0, 0, 0])
 
 if __name__ == "__main__":
     unittest.main()

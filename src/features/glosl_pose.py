@@ -13,7 +13,20 @@ EXPECTED_COMPONENTS = {
 }
 
 
-def normalize_glosl_sequence(coordinates, valid_mask, eps=1e-6):
+# MediaPipe Face Mesh indices, relative to FACE_LANDMARKS.
+FACE_EYEBROWS = [70, 105, 107, 300, 334, 336]
+FACE_EYES = [33, 133, 159, 145, 263, 362, 386, 374]
+FACE_MOUTH = [61, 291, 0, 17, 13, 14, 78, 308, 81, 311, 87]
+
+FACE_INDICES = FACE_EYEBROWS + FACE_EYES + FACE_MOUTH
+
+assert len(FACE_INDICES) == 25
+assert len(set(FACE_INDICES)) == 25
+
+
+
+
+def normalize_glosl_sequence(coordinates, valid_mask, face_nose_z=None, eps=1e-6):
     normalized = np.zeros_like(coordinates, dtype=np.float32)
     output_mask = valid_mask.copy()
 
@@ -43,7 +56,14 @@ def normalize_glosl_sequence(coordinates, valid_mask, eps=1e-6):
         normalized[t, valid, :2] = (
             coordinates[t, valid, :2] - center
         ) / scale
+
         normalized[t, valid, 2] = coordinates[t, valid, 2]
+
+        hip_z = (coordinates[t, 23, 2] + coordinates[t, 24, 2]) / 2
+        normalized[t, :33, 2] -= hip_z * valid[:33]
+
+        if face_nose_z is not None and np.isfinite(face_nose_z[t]):
+            normalized[t, 75:100, 2] -= face_nose_z[t] * valid[75:100]
 
     return normalized, output_mask
 
@@ -71,11 +91,14 @@ def read_glosl_pose(file_path):
     if set(offsets) != set(EXPECTED_COMPONENTS):
         raise ValueError("Missing expected pose components")
 
+    
     indices = np.concatenate([
         offsets["POSE_LANDMARKS"],
         offsets["LEFT_HAND_LANDMARKS"],
-        offsets["RIGHT_HAND_LANDMARKS"]
+        offsets["RIGHT_HAND_LANDMARKS"],
+        offsets["FACE_LANDMARKS"][FACE_INDICES]
     ])
+
 
     # Verify landmark ordering used by our existing MediaPipe pipeline.
     points = {c.name: [str(p) for p in c.points] for c in components}
@@ -107,7 +130,17 @@ def read_glosl_pose(file_path):
     coordinates[~valid_mask] = 0
     confidence[~valid_mask] = 0
 
-    normalized, valid_mask = normalize_glosl_sequence(coordinates, valid_mask)
+    nose_index = offsets["FACE_LANDMARKS"][1]
+    face_nose_z = np.asarray(data[:, 0, nose_index, 2], dtype=np.float32)
+    face_nose_conf = np.asarray(conf[:, 0, nose_index], dtype=np.float32)
 
+    face_nose_z[(face_nose_conf <= 0) | ~np.isfinite(face_nose_z)] = np.nan
+
+    normalized, valid_mask = normalize_glosl_sequence(
+        coordinates, valid_mask, face_nose_z
+    )
+    missing_nose = ~np.isfinite(face_nose_z)
+    normalized[missing_nose, 75:100] = 0
+    valid_mask[missing_nose, 75:100] = False
     confidence[~valid_mask] = 0
     return normalized, valid_mask, confidence

@@ -6,8 +6,8 @@ def calculate_hand_motion(pose, valid_mask, return_counts=False):
     pose = np.asarray(pose)
     valid_mask = np.asarray(valid_mask)
 
-    if pose.ndim != 3 or pose.shape[1:] != (75, 3):
-        raise ValueError("Expected pose shape (T, 75, 3)")
+    if pose.ndim != 3 or pose.shape[1:] != (100, 3):
+        raise ValueError("Expected pose shape (T, 100, 3)")
 
     if valid_mask.shape != pose.shape[:2]:
         raise ValueError("Expected mask shape (T, 75)")

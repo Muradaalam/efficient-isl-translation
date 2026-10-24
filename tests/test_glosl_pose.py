@@ -3,6 +3,8 @@ import unittest
 import numpy as np
 from pathlib import Path
 from src.features.glosl_pose import read_glosl_pose
+from pose_format import Pose
+from src.features.glosl_pose import FACE_INDICES
 
 from src.features.glosl_pose import normalize_glosl_sequence
 
@@ -62,6 +64,28 @@ class TestGloSLNormalization(unittest.TestCase):
 
         self.assertAlmostEqual(float(result[0, 15, 2]), 0.8)
 
+    
+    def test_face_z_centering(self):
+        pose = np.zeros((3, 100, 3), dtype=np.float32)
+        mask = np.ones((3, 100), dtype=bool)
+
+        pose[:, 11, :2] = [-1, 1]
+        pose[:, 12, :2] = [1, 1]
+        pose[:, 23, :2] = [-0.5, 0]
+        pose[:, 24, :2] = [0.5, 0]
+
+        pose[:, 75:100, 2] = 0.3
+        nose_z = np.array([0.1, 0.2, 0.1], dtype=np.float32)
+
+        result, result_mask = normalize_glosl_sequence(
+            pose, mask, face_nose_z=nose_z
+        )
+
+        np.testing.assert_allclose(result[0, 75:100, 2], 0.2)
+        np.testing.assert_allclose(result[1, 75:100, 2], 0.1)
+        self.assertTrue(result_mask[:, 75:100].all())
+
+
 
 class TestGloSLReader(unittest.TestCase):
 
@@ -74,7 +98,7 @@ class TestGloSLReader(unittest.TestCase):
         pose, mask, confidence = read_glosl_pose(files[0])
 
         self.assertEqual(pose.ndim, 3)
-        self.assertEqual(pose.shape[1:], (75, 3))
+        self.assertEqual(pose.shape[1:], (100, 3))
         self.assertEqual(mask.shape, pose.shape[:2])
         self.assertEqual(confidence.shape, mask.shape)
 
@@ -87,6 +111,53 @@ class TestGloSLReader(unittest.TestCase):
         self.assertTrue(np.all(pose[~mask] == 0))
         self.assertTrue(np.all(confidence[~mask] == 0))
         self.assertTrue(np.all((confidence >= 0) & (confidence <= 1)))
+
+    
+    def test_face_landmark_selection(self):
+        self.assertEqual(len(FACE_INDICES), 25)
+        self.assertEqual(len(set(FACE_INDICES)), 25)
+        self.assertTrue(all(0 <= i < 468 for i in FACE_INDICES))
+
+    def test_real_face_landmark_mapping(self):
+        files = sorted(Path("glosl_8000/poses").rglob("*.pose"))
+
+        if not files:
+            self.skipTest("GloSL dataset not available")
+
+        with files[0].open("rb") as f:
+            raw = Pose.read(f.read())
+
+        data = np.ma.filled(raw.body.data, np.nan)[:, 0]
+        conf = np.ma.filled(raw.body.confidence, 0)[:, 0]
+
+        converted, mask, _ = read_glosl_pose(files[0])
+
+        # The selected face landmarks occupy indices 75:100.
+        # Compare their XY positions after our normalization.
+        reference_frames = mask[:, [11, 12, 23, 24]].all(axis=1)
+        widths = np.linalg.norm(
+            data[:, 11, :2] - data[:, 12, :2], axis=1
+        )
+        scale = np.median(widths[reference_frames])
+
+        for t in np.where(reference_frames)[0][:10]:
+            center = (data[t, 23, :2] + data[t, 24, :2]) / 2
+
+            for j, face_index in enumerate(FACE_INDICES):
+                global_index = 33 + face_index
+
+                if conf[t, global_index] <= 0:
+                    continue
+
+                expected_xy = (data[t, global_index, :2] - center) / scale
+
+                np.testing.assert_allclose(
+                    converted[t, 75 + j, :2],
+                    expected_xy,
+                    rtol=1e-5,
+                    atol=1e-5
+                )
+
 
 
 if __name__ == "__main__":
