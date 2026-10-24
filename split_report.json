@@ -1,0 +1,19 @@
+{
+  "source_manifest_sha256": "f1930bbfa7e9cca14a2402fd5ed0d561a115a52dcb5f993a7e4e673e41453028",
+  "strategy": "original",
+  "seed_if_grouped": null,
+  "total": 8000,
+  "counts": {
+    "train": 6513,
+    "val": 715,
+    "test": 772
+  },
+  "distinct_known_video_refs": 3046,
+  "rows_missing_video_ref": 2,
+  "files_sha256": {
+    "all": "5c2651f7dd37c884148e587d5ed5773e18c5af0eeda47e514bb7c920abe2bbf5",
+    "train": "233363163ef6bea4f85b3f0a65cfc3490ecf1b407fd32dab9a473efdd9d883c1",
+    "val": "0cc90af8404670af8b40089d862820b7accdcd26f0de99703024b74e01d2357e",
+    "test": "f3fe649a32ed03ced6dfa3bf5e081dcb680ec0b1d03388042772935bf098e38b"
+  }
+}
