@@ -34,8 +34,8 @@ def test_real_glosl_sampling():
         print("Selected indices:", indices)
         print("Unique frames:", len(np.unique(valid_indices)))
 
-        assert sampled_pose.shape == (64, 75, 3)
-        assert sampled_mask.shape == (64, 75)
+        assert sampled_pose.shape == (64, 100, 3)
+        assert sampled_mask.shape == (64, 100)
         assert np.all(np.diff(valid_indices) > 0)
 
         # Verify that frames and masks were copied correctly

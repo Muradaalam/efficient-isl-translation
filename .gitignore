@@ -76,6 +76,12 @@ docs/_build/
 .pybuilder/
 target/
 
+# Local GloSL dataset
+glosl_8000/
+
+# Git bundles
+*.bundle
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
