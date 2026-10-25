@@ -165,10 +165,10 @@ class AttentionDecoder(nn.Module):
 
 
 class ISLTranslator(nn.Module):
-    def __init__(self, vocab_size, pad_token_id=0):
+    def __init__(self, vocab_size, pad_token_id=0, num_landmarks=75):
         super().__init__()
 
-        self.encoder = PoseGRUEncoder()
+        self.encoder = PoseGRUEncoder(num_landmarks=num_landmarks)
         self.decoder = AttentionDecoder(vocab_size=vocab_size, pad_token_id=pad_token_id)
         # PAD_ID = 0
         # SOS_ID = 1
