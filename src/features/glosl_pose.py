@@ -62,6 +62,17 @@ def normalize_glosl_sequence(coordinates, valid_mask, face_nose_z=None, eps=1e-6
         hip_z = (coordinates[t, 23, 2] + coordinates[t, 24, 2]) / 2
         normalized[t, :33, 2] -= hip_z * valid[:33]
 
+
+        # Normalize hand depth relative to each hand's wrist.
+        for start, end in ((33, 54), (54, 75)):
+            if valid_mask[t, start]:
+                wrist_z = coordinates[t, start, 2]
+                normalized[t, start:end, 2] -= wrist_z * output_mask[t, start:end]
+            else:
+                normalized[t, start:end] = 0
+                output_mask[t, start:end] = False
+
+
         if face_nose_z is not None and np.isfinite(face_nose_z[t]):
             normalized[t, 75:100, 2] -= face_nose_z[t] * valid[75:100]
 

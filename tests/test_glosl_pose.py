@@ -85,6 +85,31 @@ class TestGloSLNormalization(unittest.TestCase):
         np.testing.assert_allclose(result[1, 75:100, 2], 0.1)
         self.assertTrue(result_mask[:, 75:100].all())
 
+    def test_hand_z_is_wrist_relative(self):
+        pose = np.zeros((2, 100, 3), dtype=np.float32)
+        mask = np.ones((2, 100), dtype=bool)
+
+        pose[:, 11, :2] = [-1, 1]
+        pose[:, 12, :2] = [1, 1]
+        pose[:, 23, :2] = [-0.5, 0]
+        pose[:, 24, :2] = [0.5, 0]
+
+        pose[:, 33, 2] = 0.2
+        pose[:, 34, 2] = 0.5
+
+        pose[:, 54, 2] = -0.1
+        pose[:, 55, 2] = 0.3
+
+        result, result_mask = normalize_glosl_sequence(pose, mask)
+
+        np.testing.assert_allclose(result[:, 33, 2], 0, atol=1e-6)
+        np.testing.assert_allclose(result[:, 34, 2], 0.3, atol=1e-6)
+
+        np.testing.assert_allclose(result[:, 54, 2], 0, atol=1e-6)
+        np.testing.assert_allclose(result[:, 55, 2], 0.4, atol=1e-6)
+
+        self.assertTrue(result_mask.all())
+
 
 
 class TestGloSLReader(unittest.TestCase):
