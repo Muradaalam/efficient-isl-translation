@@ -262,3 +262,6 @@ glosl_8000/failed_downloads.txt
 
 # Generated dataset splits
 glosl_8000/splits/
+
+# Test video
+tests/test_video.mp4
