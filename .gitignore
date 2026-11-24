@@ -250,3 +250,15 @@ __marimo__/
 
 # Local environment and credentials
 .env.*
+
+# macOS files
+.DS_Store
+
+# GloSL downloaded data
+glosl_8000/poses/
+glosl_8000/.cache/
+glosl_8000/downloaded_subset.csv
+glosl_8000/failed_downloads.txt
+
+# Generated dataset splits
+glosl_8000/splits/
