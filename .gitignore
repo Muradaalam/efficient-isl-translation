@@ -265,3 +265,12 @@ glosl_8000/splits/
 
 # Test video
 tests/test_video.mp4
+
+# Demo files
+.venv/
+__pycache__/
+*.pyc
+demo/videos/
+demo/poses/
+demo/outputs/
+.streamlit/secrets.toml

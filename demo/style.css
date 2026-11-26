@@ -1,0 +1,149 @@
+.block-container {
+    max-width: 1450px;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+header[data-testid="stHeader"] {
+    background: transparent;
+}
+
+#MainMenu, footer {
+    visibility: hidden;
+}
+
+.hero {
+    background: linear-gradient(120deg, #0F172A, #1E3A5F);
+    padding: 28px 32px;
+    border-radius: 16px;
+    margin-bottom: 22px;
+}
+
+.hero-label {
+    color: #93C5FD;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 2px;
+}
+
+.hero-title {
+    color: white;
+    font-size: 34px;
+    font-weight: 700;
+    margin: 8px 0;
+}
+
+.hero-subtitle {
+    color: #CBD5E1;
+    font-size: 15px;
+}
+
+.tech-tag {
+    display: inline-block;
+    background: #334155;
+    color: #DBEAFE;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin: 15px 6px 0 0;
+}
+
+.section-title {
+    font-size: 21px;
+    font-weight: 650;
+    color: #0F172A;
+    margin: 20px 0 12px;
+}
+
+[data-testid="stMetric"] {
+    background: white;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 16px;
+    min-height: 100px;
+}
+
+[data-testid="stMetricValue"] {
+    font-size: 28px;
+    font-weight: 650;
+}
+
+[data-testid="stFileUploaderDropzone"] {
+    border: 2px dashed #CBD5E1;
+    background: white;
+    border-radius: 12px;
+}
+
+.stButton > button {
+    border-radius: 8px;
+    min-height: 45px;
+    font-weight: 600;
+}
+
+.pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: white;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 18px;
+    margin: 20px 0;
+    gap: 8px;
+}
+
+.pipeline-step {
+    flex: 1;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.pipeline-number {
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+    border-radius: 50%;
+    margin: 0 auto 8px;
+}
+
+.pipeline-arrow {
+    color: #94A3B8;
+    font-size: 20px;
+}
+
+.adaptive-box {
+    background: white;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 22px;
+}
+
+.translation-box {
+    background: white;
+    border: 1px solid #E2E8F0;
+    border-left: 5px solid #2563EB;
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.translation-label {
+    color: #64748B;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.translation-text {
+    color: #334155;
+    font-size: 26px;
+    font-weight: 600;
+    margin: 12px 0;
+}
+
+.project-footer {
+    text-align: center;
+    color: #94A3B8;
+    font-size: 12px;
+    margin-top: 30px;
+}
